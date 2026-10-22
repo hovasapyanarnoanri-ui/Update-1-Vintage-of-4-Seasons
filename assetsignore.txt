@@ -1,7 +1,9 @@
+worker.js
 _worker.js
 wrangler.toml
 README.md
 *.pdf
+assetsignore.txt
 .assetsignore
 .git
 node_modules

@@ -1,5 +1,5 @@
 name = "update-1-vintage-of-4-seasons"
-main = "_worker.js"
+main = "worker.js"
 compatibility_date = "2025-01-01"
 
 [assets]
