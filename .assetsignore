@@ -1,0 +1,7 @@
+_worker.js
+wrangler.toml
+README.md
+*.pdf
+.assetsignore
+.git
+node_modules
