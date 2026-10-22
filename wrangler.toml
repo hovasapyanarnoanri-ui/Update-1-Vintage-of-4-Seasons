@@ -1,0 +1,13 @@
+name = "update-1-vintage-of-4-seasons"
+main = "_worker.js"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "./"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+persist = true
