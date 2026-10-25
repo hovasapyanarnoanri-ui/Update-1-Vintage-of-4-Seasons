@@ -2612,18 +2612,17 @@ function go(p){
   window.scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>go(b.dataset.p));
 
-// Zone-based shipping estimate: rate depends on how far the ZIP's leading digit sits from our
-// home zone (9 = West Coast). Placeholder tiers — swap in real carrier rates once available.
-function shippingCost(itemCount,zip){
-  if(!itemCount)return 0;
-  const base=4, perExtra=1, extra=(itemCount-1)*perExtra;
-  const digit=zip&&/^\d/.test(zip)?+zip[0]:null;
-  let zoneFee=3; // unknown/invalid ZIP falls back to a mid-range estimate
-  if(digit!==null){
-    const distance=Math.abs(9-digit); // 0 = same zone as shop, up to 9 = farthest
-    zoneFee=Math.round(distance*0.6*10)/10;
+// Base $4 for first item, +$1 per extra item.
+// Zone fee: $0.60 × how many steps the ZIP first digit is from 9 (West Coast).
+function shippingCost(itemCount, zip) {
+  if (!itemCount) return 0;
+  const base = 4, perExtra = 1, extra = (itemCount - 1) * perExtra;
+  const digit = zip && /^\d/.test(String(zip)) ? Number(String(zip)[0]) : null;
+  let zoneFee = 0;
+  if (digit !== null) {
+    zoneFee = Math.round(Math.abs(9 - digit) * 0.6 * 10) / 10;
   }
-  return Math.round((base+extra+zoneFee)*100)/100;
+  return Math.round((base + extra + zoneFee) * 100) / 100;
 }
 const colorOpts=Object.keys(colorMap).map(c=>`<option>${c}</option>`).join('')+'<option value="other">Other (type below)</option>';
 function addOrnLine(){
