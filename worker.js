@@ -68,10 +68,10 @@ function priceFor(name, variant) {
 
 // Same ZIP-based shipping estimate the website shows. lineCount = number of different cart lines.
 function shippingCost(lineCount, zip) {
-  const base = 6, perExtra = 1.5, extra = (lineCount - 1) * perExtra;
+  const base = 4, perExtra = 1, extra = (lineCount - 1) * perExtra;
   const digit = zip ? Number(zip[0]) : null;
   let zoneFee = 3;
-  if (digit !== null) zoneFee = Math.round(Math.abs(9 - digit) * 0.9 * 10) / 10;
+  if (digit !== null) zoneFee = Math.round(Math.abs(9 - digit) * 0.6 * 10) / 10;
   return Math.round((base + extra + zoneFee) * 100) / 100;
 }
 
