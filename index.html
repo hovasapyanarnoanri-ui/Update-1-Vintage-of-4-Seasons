@@ -2936,7 +2936,7 @@ if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
 <script>
 // ---- Shop cards: photos gently rotate through the available colors ----
 (function(){
-  var ORDER=['Royal Blue','White','Light Pink','Red','Cream'], GAP=5000;
+  var ORDER=['Royal Blue','White','Light Pink','Red','Cream'], GAP=15000;
   var reduce=false;try{reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
   if(reduce)return;
   function colorsOf(pr){return ORDER.filter(function(c){return colorMap[c]&&photosFor(pr,c).length;});}
