@@ -46,11 +46,11 @@ function priceFor(name, variant) {
   return item.p;
 }
 
-// Base $5 for first item, +$1 per extra item/line.
-// Zone fee: $0.60 × steps the ZIP first digit is from 9 (West Coast).
+// Base $4 for first item, +$1 per extra item.
+// Zone fee: $0.60 × how many steps the ZIP first digit is from 9 (West Coast).
 function shippingCost(lineCount, zip) {
   if (!lineCount) return 0;
-  const base = 5, perExtra = 1, extra = (lineCount - 1) * perExtra;
+  const base = 4, perExtra = 1, extra = (lineCount - 1) * perExtra;
   const digit = zip && /^\d/.test(String(zip)) ? Number(String(zip)[0]) : null;
   let zoneFee = 0;
   if (digit !== null) {
