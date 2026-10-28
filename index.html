@@ -2437,6 +2437,7 @@ let ppIndex=0, ppColor='';
 const BASE_TITLE=document.title;
 const BASE_DESC=(document.querySelector('meta[name="description"]')||{}).content||'';
 function setHash(h){try{history.replaceState(null,'',h?'#'+h:location.pathname+location.search);}catch(e){}}
+const PRODUCT_DIMS={"Guitar Ornament": "11 × 4.5 in", "Vintage Carousel Horse Drum Ornament": "5.5 × 3 in", "Antique Carriage Ornament": "6 × 5.5 in", "Chandelier Ornament": "6 × 5 in", "Mother Mary Ornament": "5.5 × 5.5 in (round)", "Gold Leaf Teardrop Ornament": "5.5 × 3.5 in", "Medallion Ornament": "5 × 5 in", "Large Medallion Ornament": "5 × 5 in (round)", "Ornament Gift Box": "14 × 6.5 in", "Praying Mary Ornament": "5 × 5 in", "Angel Ornament": "5 × 5 in", "Sapphire Cameo Ornament": "5 × 5 in", "Angel of Eternal Love Ornament": "5 × 5 in", "Ballet Slippers Ornament": "4 × 4 in", "Ballerina Ornament": "5 × 5 in", "Masquerade Mask Ornament": "5 × 5 in", "Horse Head Ornament": "4 × 4 in", "Carousel Horse Medallion": "5 × 5 in", "Jeweled Filigree Ornament": "4 × 4 in", "Rose Cameo Ornament": "4 × 4 in", "Framed Ballerina Ornament": "4 × 4 in", "Crystal Teardrop Ornament": "5.5 × 3.5 in"};
 const SHIP_LD={"@type":"OfferShippingDetails","shippingRate":{"@type":"MonetaryAmount","value":"4.00","currency":"USD"},"shippingDestination":{"@type":"DefinedRegion","addressCountry":"US"},"deliveryTime":{"@type":"ShippingDeliveryTime","handlingTime":{"@type":"QuantitativeValue","minValue":0,"maxValue":3,"unitCode":"DAY"},"transitTime":{"@type":"QuantitativeValue","minValue":2,"maxValue":5,"unitCode":"DAY"}}};
 const RETURN_LD={"@type":"MerchantReturnPolicy","applicableCountry":"US","returnPolicyCategory":"https://schema.org/MerchantReturnFiniteReturnWindow","merchantReturnDays":5,"returnMethod":"https://schema.org/ReturnByMail"};
 function setSEO(pr){
@@ -2500,6 +2501,7 @@ function renderProduct(){
       <div class="pp-facts">
         <div><strong>Handmade:</strong> ${isBox(pr)?'every ornament inside is made by hand and takes several hours to make':'made entirely by hand, never molded, and takes several hours to make'}</div>
         ${pr.engrave?'<div><strong>Engraving:</strong> $1 per letter or number (spaces and punctuation free)</div>':''}
+        ${PRODUCT_DIMS[pr.n]?`<div><strong>Size:</strong> ${PRODUCT_DIMS[pr.n]}</div>`:''}
         <div><strong>Shipping:</strong> in-stock orders ship in about 3 days; custom orders in 4–5 days</div>
         <div><strong>Tax:</strong> no sales tax is added to your order</div>
         <div><strong>Returns:</strong> 5-day return window — <a href="#" onclick="go('returns');return false">details</a></div>
