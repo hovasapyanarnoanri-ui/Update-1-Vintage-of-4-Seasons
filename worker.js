@@ -158,7 +158,9 @@ async function onRequest(context) {
 
   const email = clean(q.email, 200);
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) form.append('customer_email', email);
-  form.append('shipping_address_collection[allowed_countries][0]', 'US');
+  // Ships free to most countries worldwide. To limit it, edit this list (or set it to ['US'] for the United States only).
+  const SHIP_COUNTRIES = 'AD,AE,AF,AG,AI,AL,AM,AO,AR,AT,AU,AW,AX,AZ,BA,BB,BD,BE,BF,BG,BH,BI,BJ,BL,BM,BN,BO,BQ,BR,BS,BT,BW,BZ,CA,CD,CF,CG,CH,CI,CK,CL,CM,CN,CO,CR,CV,CW,CY,CZ,DE,DJ,DK,DM,DO,DZ,EC,EE,EG,EH,ER,ES,ET,FI,FJ,FK,FO,FR,GA,GB,GD,GE,GF,GG,GH,GI,GL,GM,GN,GP,GQ,GR,GT,GU,GW,GY,HK,HN,HR,HT,HU,ID,IE,IL,IM,IN,IQ,IS,IT,JE,JM,JO,JP,KE,KG,KH,KI,KM,KN,KR,KW,KY,KZ,LA,LB,LC,LI,LK,LR,LS,LT,LU,LV,LY,MA,MC,MD,ME,MF,MG,MK,ML,MM,MN,MO,MQ,MR,MS,MT,MU,MV,MW,MX,MY,MZ,NA,NC,NE,NG,NI,NL,NO,NP,NR,NU,NZ,OM,PA,PE,PF,PG,PH,PK,PL,PM,PN,PR,PS,PT,PY,QA,RE,RO,RS,RW,SA,SB,SC,SE,SG,SH,SI,SJ,SK,SL,SM,SN,SO,SR,SS,ST,SV,SX,SZ,TC,TD,TG,TH,TJ,TK,TL,TM,TN,TO,TR,TT,TV,TW,TZ,UA,UG,US,UY,UZ,VA,VC,VE,VG,VN,VU,WF,WS,XK,YE,YT,ZA,ZM,ZW'.split(',');
+  SHIP_COUNTRIES.forEach((c, i) => form.append(`shipping_address_collection[allowed_countries][${i}]`, c));
   form.append('phone_number_collection[enabled]', 'true');
   form.append('metadata[name]', clean(q.name, 200));
   form.append('metadata[phone]', clean(q.phone, 40));
@@ -174,12 +176,21 @@ async function onRequest(context) {
   let data = {};
   let ok = false;
   try {
-    const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    const callStripe = () => fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form.toString(),
     });
+    let resp = await callStripe();
     data = await resp.json().catch(() => ({}));
+    // Safety net: if Stripe does not accept the country list, fall back to the US only so checkout never breaks.
+    if (!resp.ok && /allowed_countries|shipping_address_collection/i.test((data && data.error && (data.error.param || '') + ' ' + (data.error.message || '')) || '')) {
+      console.error('Stripe rejected the country list, retrying with US only:', data.error && data.error.message);
+      for (const k of [...form.keys()]) if (k.startsWith('shipping_address_collection')) form.delete(k);
+      form.append('shipping_address_collection[allowed_countries][0]', 'US');
+      resp = await callStripe();
+      data = await resp.json().catch(() => ({}));
+    }
     ok = resp.ok && !!data.url;
     if (!ok) console.error('Stripe error', resp.status, data && data.error && data.error.message);
   } catch (e) {

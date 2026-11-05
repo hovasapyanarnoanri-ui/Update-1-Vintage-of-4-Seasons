@@ -2200,7 +2200,7 @@ form.panel{background:var(--paper);border:1px solid rgba(0,0,0,.08);padding:24px
         <div class="field"><label>Phone Number</label><input id="phoneOrder" type="tel" required></div>
         <div class="field"><label>Shipping Address</label><input id="addrOrder" required></div>
       </div>
-      <div class="field"><label>ZIP Code</label><input id="zipOrder" inputmode="numeric" maxlength="5" placeholder="e.g. 90210" oninput="calc()" required></div>
+      <div class="field"><label>ZIP / Postal Code</label><input id="zipOrder" maxlength="12" placeholder="e.g. 90210" oninput="calc()"></div>
 
       <h3 style="font-size:1rem">Your Ornaments</h3>
       <p class="note" style="margin-bottom:12px">Add as many ornaments as you like — each one can have its own color and engraving. Don't see what you want? Choose "Something else" and type it in.</p>
@@ -2255,10 +2255,10 @@ form.panel{background:var(--paper);border:1px solid rgba(0,0,0,.08);padding:24px
         <div class="field"><label>Phone Number</label><input id="phoneCheckout" type="tel" required></div>
         <div class="field"><label>Shipping Address</label><input id="addrCheckout" required></div>
       </div>
-      <div class="field"><label>ZIP Code</label><input id="zipCheckout" inputmode="numeric" maxlength="5" placeholder="e.g. 90210" oninput="renderCheckoutPage()" required></div>
+      <div class="field"><label>ZIP / Postal Code</label><input id="zipCheckout" maxlength="12" placeholder="e.g. 90210" oninput="renderCheckoutPage()"></div>
       <div class="field gift-field"><label>Gift note (optional, free)</label><textarea id="giftCheckout" rows="3" maxlength="250" placeholder="Write a message and we'll include it on a card with the ornament, at no extra charge."></textarea></div>
       <div class="summary" id="checkoutSummary"></div>
-      <p class="note">Shipping is free. We don't charge sales tax.</p>
+      <p class="note">Shipping is free, worldwide. We don't charge sales tax.</p>
 
       <h3 style="font-size:1rem">Payment</h3>
       <p class="note">You'll pay securely on Stripe's own page after tapping the button below. Your card details are never entered on, or stored by, this site.</p>
@@ -2292,7 +2292,8 @@ form.panel{background:var(--paper);border:1px solid rgba(0,0,0,.08);padding:24px
     <details><summary>How much does engraving cost?</summary><p>Custom engraving is $1 per letter or number on eligible ornaments. Spaces and punctuation are free.</p></details>
     <details><summary>How does the Gift Box work?</summary><p>Open the Ornament Gift Box, pick the ornaments you want inside and their colors, and the price is simply the ornaments you choose. Add 3 or more ornaments and we include a second, separate gift box for free.</p></details>
     <details><summary>Do you charge sales tax?</summary><p>No. We don't add sales tax to your order, so the price you see is the price you pay, with free shipping.</p></details>
-    <details><summary>Is shipping free?</summary><p>Yes. Shipping is free on every order, and the price you see is the price you pay.</p></details>
+    <details><summary>Is shipping free?</summary><p>Yes. Shipping is free on every order, anywhere we ship, and the price you see is the price you pay.</p></details>
+    <details><summary>Do you ship internationally?</summary><p>Yes, we ship to most countries and shipping is free. International orders take longer to arrive than US orders. Any customs duties or import taxes are set by your country and may be collected by the carrier when your package arrives.</p></details>
     <details><summary>Can I request a custom order?</summary><p>Yes — use the Custom Order page to select an ornament and share your preferences.</p></details>
     <details><summary>How should I store my ornaments?</summary><p>Keep ornaments out of direct sunlight, and store them wrapped individually between seasons.</p></details>
     <details><summary>How long does shipping take?</summary><p>Standard orders ship in about 3 days. Custom/special orders take about 4–5 days before they ship.</p></details>
@@ -2591,13 +2592,13 @@ function renderProduct(){
         <p class="pp-short">Several hours of handwork. One of a kind. Made to be passed down.</p>
       </div>
       <div class="swatches" id="ppSwatches">${opts}</div>
-      ${isBox(pr)?'<div id="boxBuilder"></div>':'<button class="btn primary" style="width:100%;margin-top:14px" onclick="addToCartDirect(ppIndex,ppColor)">Add to Cart</button><div class="pp-assure">Handmade just for you. Free shipping. No sales tax. 5-day returns.</div>'}
+      ${isBox(pr)?'<div id="boxBuilder"></div>':'<button class="btn primary" style="width:100%;margin-top:14px" onclick="addToCartDirect(ppIndex,ppColor)">Add to Cart</button><div class="pp-assure">Handmade just for you. Free shipping worldwide. No sales tax. 5-day returns.</div>'}
       ${pr.engrave?'<button class="btn secondary" style="width:100%;margin-top:8px" onclick="go(\'order\')">Customize / Engrave</button>':''}
       <div class="pp-facts">
         <div><strong>Handmade:</strong> ${isBox(pr)?'made by hand, never molded. Every ornament inside takes Luso several hours from first cut to final finish, and each one comes out a little different.':'made by hand, never molded. Every '+pr.n.replace(/ Ornament$/,'')+' takes Luso several hours from first cut to final finish, and each one comes out a little different. Yours is the only one like it.'}</div>
         ${pr.engrave?'<div><strong>Engraving:</strong> $1 per letter or number (spaces and punctuation free). Add a name, year or short message, engraved by hand, and a beautiful ornament becomes a keepsake that carries a story year after year.</div>':''}
         ${PRODUCT_DIMS[pr.n]?`<div><strong>Size:</strong> ${PRODUCT_DIMS[pr.n]}</div>`:''}
-        <div><strong>Shipping:</strong> free on every order, carefully packed. In-stock orders ship in about 3 days; custom orders in 4–5 days. No sales tax is added.</div>
+        <div><strong>Shipping:</strong> free worldwide, carefully packed. In-stock orders ship in about 3 days; custom orders in 4–5 days. No sales tax is added.</div>
         <div><strong>Gift:</strong> arrives ready to give. Add a gift note at checkout.</div>
         <div><strong>Returns:</strong> not in love with it? Return it within 5 days of delivery. We want you to open it and feel it was worth it. <a href="#" onclick="go('returns');return false">Details</a></div>
       </div>
