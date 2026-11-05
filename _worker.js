@@ -46,17 +46,9 @@ function priceFor(name, variant) {
   return item.p;
 }
 
-// Base $4 for first item, +$1 per extra item.
-// Zone fee: $0.60 × how many steps the ZIP first digit is from 9 (West Coast).
+// Shipping is free on every order.
 function shippingCost(lineCount, zip) {
-  if (!lineCount) return 0;
-  const base = 4, perExtra = 1, extra = (lineCount - 1) * perExtra;
-  const digit = zip && /^\d/.test(String(zip)) ? Number(String(zip)[0]) : null;
-  let zoneFee = 0;
-  if (digit !== null) {
-    zoneFee = Math.round(Math.abs(9 - digit) * 0.6 * 10) / 10;
-  }
-  return Math.round((base + extra + zoneFee) * 100) / 100;
+  return 0;
 }
 
 const clean = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) : '');
@@ -101,7 +93,7 @@ async function onRequest(context) {
   }
 
   let cart;
-  try { cart = typeof q.cart === 'string' ? JSON.parse(q.cart) : q.cart; } catch (e) { cart = null; }
+  try { cart = typeof q.cart === 'string' ? JSON.parse(q.cart) : q.cart; } catch (e) { return say('Invalid request body.', 400); }
   if (!Array.isArray(cart) || cart.length < 1 || cart.length > 30) {
     return say('Your cart looks empty. Please go back and try again.', 400);
   }
@@ -140,7 +132,7 @@ async function onRequest(context) {
   const zip = /^\d{5}$/.test(clean(q.zip, 5)) ? clean(q.zip, 5) : '';
   const ship = shippingCost(cart.length, zip);
   form.append(`line_items[${n}][price_data][currency]`, 'usd');
-  form.append(`line_items[${n}][price_data][product_data][name]`, 'Shipping (estimate)');
+  form.append(`line_items[${n}][price_data][product_data][name]`, 'Free shipping');
   form.append(`line_items[${n}][price_data][unit_amount]`, String(Math.round(ship * 100)));
   form.append(`line_items[${n}][quantity]`, '1');
 
