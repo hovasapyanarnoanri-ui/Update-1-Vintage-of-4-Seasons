@@ -79,11 +79,13 @@ function zipRate(z) {
   const n3 = Number(z.slice(0, 3));
   if (n3 >= 967 && n3 <= 969) return 16; // Hawaii, Guam
   if (n3 >= 995 && n3 <= 999) return 16; // Alaska
-  return { 9: 8, 8: 9, 7: 10, 6: 10, 5: 11, 4: 11, 3: 11, 2: 12, 1: 12, 0: 12 }[z[0]];
+
+  const rates = { 9: 8, 8: 9, 7: 10, 6: 10, 5: 11, 4: 11, 3: 11, 2: 12, 1: 12, 0: 12 };
+  return rates[z[0]] ?? SHIP.DEFAULT;
 }
-function shippingCost(lineCount, zip, intl) {
-  if (intl) return SHIP.INTL;
-  const z = String(zip || '');
+function shippingCost(lineCount, zip, isInternational) {
+  if (isInternational) return SHIP.INTL;
+  const z = String(zip || '').replace(/\s/g, '');
   const base = /^\d{5}$/.test(z) ? zipRate(z) : SHIP.DEFAULT; // no ZIP typed: use the default
   return base + Math.max(0, lineCount - 1) * SHIP.EXTRA_LINE;
 }
@@ -174,12 +176,18 @@ async function onRequest(context) {
   const zip = /^\d{5}$/.test(clean(q.zip, 5)) ? clean(q.zip, 5) : '';
   const ctryRaw = clean(q.ctry, 8).toUpperCase();
   const ctry = SHIP_COUNTRIES.includes(ctryRaw) ? ctryRaw : '';           // a real country code chosen on the website
-  const intl = ctryRaw === 'INTL' || (ctry !== '' && ctry !== 'US');   // anywhere except the US pays the flat price
-  const ship = shippingCost(cart.length, zip, intl);
-  form.append(`line_items[${n}][price_data][currency]`, 'usd');
-  form.append(`line_items[${n}][price_data][product_data][name]`, intl ? 'Shipping (outside the US)' : 'Shipping');
-  form.append(`line_items[${n}][price_data][unit_amount]`, String(Math.round(ship * 100)));
-  form.append(`line_items[${n}][quantity]`, '1');
+  const isInternational = ctryRaw === 'INTL' || (ctry !== '' && ctry !== 'US');   // anywhere except the US pays the flat price
+  // Same count as the website: one per cart line (the website adds $1 per extra line, not per quantity)
+  const ship = shippingCost(cart.length, zip, isInternational);
+
+  // Only add the shipping line if the amount is a valid number
+  if (typeof ship === 'number' && !isNaN(ship) && ship > 0) {
+    form.append(`line_items[${n}][price_data][currency]`, 'usd');
+    form.append(`line_items[${n}][price_data][product_data][name]`, isInternational ? 'Shipping (outside the US)' : 'Shipping');
+    form.append(`line_items[${n}][price_data][unit_amount]`, String(Math.round(ship * 100)));
+    form.append(`line_items[${n}][quantity]`, '1');
+    n++;
+  }
 
   const email = clean(q.email, 200);
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) form.append('customer_email', email);
