@@ -2759,18 +2759,23 @@ function fillCountries(){
   ['Order','Checkout'].forEach(k=>{const s=document.getElementById('country'+k);if(s)s.innerHTML=opts;});
 }
 fillCountries();
-const SHIP={INTL:35,DEFAULT:12,EXTRA_LINE:1};
-function zipRate(z){
-  const n3=Number(z.slice(0,3));
-  if(n3>=967&&n3<=969)return 16; // Hawaii, Guam
-  if(n3>=995&&n3<=999)return 16; // Alaska
-  return {9:8,8:9,7:10,6:10,5:11,4:11,3:11,2:12,1:12,0:12}[z[0]];
+const SHIP = { INTL: 35, DEFAULT: 12, EXTRA_LINE: 1 };
+
+function zipRate(z) {
+  const n3 = Number(z.slice(0, 3));
+  if (n3 >= 967 && n3 <= 969) return 16; // Hawaii, Guam
+  if (n3 >= 995 && n3 <= 999) return 16; // Alaska
+
+  const rates = { 9: 8, 8: 9, 7: 10, 6: 10, 5: 11, 4: 11, 3: 11, 2: 12, 1: 12, 0: 12 };
+  return rates[z[0]] ?? SHIP.DEFAULT;
 }
+
 function shippingCost(itemCount, zip, country) {
-  if(country&&country!=='US')return SHIP.INTL;
-  const z=String(zip||'').replace(/\s/g,'');
-  const base=/^\d{5}$/.test(z)?zipRate(z):SHIP.DEFAULT; // no ZIP typed yet: use the default
-  return base+Math.max(0,itemCount-1)*SHIP.EXTRA_LINE;
+  if (country && country !== 'US') return SHIP.INTL;
+
+  const z = String(zip || '').replace(/\s/g, '');
+  const base = /^\d{5}$/.test(z) ? zipRate(z) : SHIP.DEFAULT;
+  return base + Math.max(0, itemCount - 1) * SHIP.EXTRA_LINE;
 }
 const colorOpts=Object.keys(colorMap).map(c=>`<option>${c}</option>`).join('')+'<option value="other">Other (type below)</option>';
 function addOrnLine(){
