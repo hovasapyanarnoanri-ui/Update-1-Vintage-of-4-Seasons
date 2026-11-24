@@ -5,10 +5,15 @@ compatibility_date = "2025-01-01"
 [assets]
 directory = "./"
 binding = "ASSETS"
-run_worker_first = ["/api/*"]
+run_worker_first = ["/api/*", "/ornament/*"]
+
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "vintage-of-4-seasons-photos"
 
 [vars]
 ORDER_EMAIL = "lisaabrahamian38@gmail.com"
+ORDER_FROM = "Vintage of 4 Seasons <orders@vintageof4seasons.com>"
 SITE_URL = "https://vintageof4seasons.com/"
 
 [observability.logs]

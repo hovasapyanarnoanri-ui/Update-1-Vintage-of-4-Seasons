@@ -1,6 +1,8 @@
 // _worker.js  -  ONE file that does everything, for Cloudflare Pages "drag and drop" uploads.
 //   /api/checkout        creates the Stripe payment page (holds the real prices)
 //   /api/stripe-webhook  emails each paid order (optional; needs the extra settings in the README)
+//   /api/custom-order    pays for a custom order with photos (photos are saved in the R2 bucket PHOTOS)
+//   /api/photo           saves one photo for a photo ornament
 //   everything else      is served from the website files next to this file
 // (The separate functions/ folder isn't supported by drag and drop, so both are combined here.)
 
@@ -242,6 +244,102 @@ async function onRequest(context) {
   return new Response(null, { status: 303, headers: { Location: data.url } });
 }
 
+// ---------------------------------------------------------------
+// CUSTOM ORDER WITH PHOTOS: /api/custom-order
+// The website first uploads each photo to /api/photo (saved in the R2 bucket), then sends the order lines here.
+// Prices come from this file only: ornament price + $1 per engraved letter/number; photo ornament = PHOTO_PRICE_CENTS.
+// ---------------------------------------------------------------
+async function customOrder(context) {
+  const { request, env } = context;
+  if (request.method !== 'POST') return say('Method not allowed', 405);
+  if (!env.STRIPE_SECRET_KEY) return say('Server misconfiguration: STRIPE_SECRET_KEY is missing.', 500);
+  const siteUrl = env.SITE_URL;
+  if (!siteUrl || !/^https?:\/\//.test(siteUrl)) return say('Server misconfiguration: SITE_URL is missing or must start with https://', 500);
+  let q;
+  try { q = await request.json(); } catch (e) { return say('Invalid request body.', 400); }
+  if (!q || typeof q !== 'object') return say('Invalid request body.', 400);
+
+  const lines = q.lines;
+  if (!Array.isArray(lines) || lines.length < 1 || lines.length > 10) return say('Your order looks empty. Please go back and try again.', 400);
+  const photoIds = Array.isArray(q.photos) ? q.photos : [];
+  if (photoIds.length > PHOTO_MAX_COUNT) return say('You can add up to ' + PHOTO_MAX_COUNT + ' photos.', 400);
+  for (const id of photoIds) {
+    if (typeof id !== 'string' || !PHOTO_ID.test(id)) return say('One of your photos could not be read. Please add it again.', 400);
+    if (!env.PHOTOS || !(await env.PHOTOS.head(id))) return say('One of your photos could not be found. Please add it again.', 400);
+  }
+  const wantsPhoto = lines.some((l) => l && l.photo === true);
+  if (wantsPhoto && photoIds.length < 1) return say('Please add your photo first.', 400);
+
+  const form = new URLSearchParams();
+  form.append('mode', 'payment');
+  let n = 0, totalQty = 0;
+  for (const l of lines) {
+    if (!l || typeof l !== 'object') return say('Your order could not be read. Please try again.', 400);
+    const qty = Number(l.qty);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 50) return say('One of the quantities is not valid.', 400);
+    const color = clean(l.color, 40) || 'custom color';
+    const engrave = clean(l.engrave, 60);
+    let unitCents, label;
+    if (l.photo === true) {
+      unitCents = PHOTO_PRICE_CENTS; label = 'Photo ornament';
+    } else {
+      const name = typeof l.name === 'string' ? l.name : '';
+      const price = has(CATALOG, name) && !CATALOG[name].box ? priceFor(name, color) : null;
+      if (typeof price !== 'number') return say('One of the ornaments could not be found. Please go back and try again.', 400);
+      unitCents = Math.round(price * 100); label = name;
+    }
+    const letters = (engrave.match(/[a-zA-Z0-9]/g) || []).length;
+    unitCents += letters * 100;                                   // engraving is $1 per letter or number
+    label += ' — ' + color + (engrave ? ' — Engraving: "' + engrave + '"' : '');
+    form.append(`line_items[${n}][price_data][currency]`, 'usd');
+    form.append(`line_items[${n}][price_data][product_data][name]`, label.slice(0, 250));
+    form.append(`line_items[${n}][price_data][unit_amount]`, String(unitCents));
+    form.append(`line_items[${n}][quantity]`, String(qty));
+    n++; totalQty += qty;
+  }
+
+  const zip = /^\d{5}$/.test(clean(q.zip, 5)) ? clean(q.zip, 5) : '';
+  const ctryRaw = clean(q.ctry, 8).toUpperCase();
+  const ctry = SHIP_COUNTRIES.includes(ctryRaw) ? ctryRaw : '';
+  const isInternational = ctry !== '' && ctry !== 'US';
+  const ship = shippingCost(totalQty, zip, isInternational);      // same rule as the website's custom-order form
+  if (typeof ship === 'number' && !isNaN(ship) && ship > 0) {
+    form.append(`line_items[${n}][price_data][currency]`, 'usd');
+    form.append(`line_items[${n}][price_data][product_data][name]`, isInternational ? 'Shipping (outside the US)' : 'Shipping');
+    form.append(`line_items[${n}][price_data][unit_amount]`, String(Math.round(ship * 100)));
+    form.append(`line_items[${n}][quantity]`, '1');
+  }
+  const email = clean(q.email, 200);
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) form.append('customer_email', email);
+  (ctry ? [ctry] : ['US']).forEach((c, i) => form.append(`shipping_address_collection[allowed_countries][${i}]`, c));
+  form.append('phone_number_collection[enabled]', 'true');
+  form.append('metadata[source]', 'custom-order');
+  form.append('metadata[name]', clean(q.name, 200));
+  form.append('metadata[phone]', clean(q.phone, 40));
+  form.append('metadata[address]', clean(q.addr, 300));
+  form.append('metadata[zip]', zip);
+  if (ctry) form.append('metadata[country]', ctry);
+  if (clean(q.notes, 400)) form.append('metadata[notes]', clean(q.notes, 400));
+  if (photoIds.length) form.append('metadata[photos]', photoIds.join(','));
+  form.append('success_url', siteUrl + (siteUrl.includes('?') ? '&' : '?') + 'paid=1');
+  form.append('cancel_url', siteUrl);
+
+  let data = {}, ok = false;
+  try {
+    const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    data = await resp.json().catch(() => ({}));
+    ok = resp.ok && !!data.url;
+    if (!ok) console.error('Stripe error (custom order)', resp.status, data && data.error && data.error.message);
+  } catch (e) { console.error('Could not reach Stripe', e && e.message); }
+  if (!ok) return say('Something went wrong starting checkout. Please go back and try again.', 500);
+  return new Response(JSON.stringify({ url: data.url }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
+  onRequest.customOrder = customOrder;
   return onRequest;
 })();
 
@@ -337,7 +435,7 @@ function buildCustomerEmail(session) {
 }
 
 // ---- write the email (plain text on purpose: nothing a customer typed can run as code) ----
-function buildEmail(session) {
+function buildEmail(session, photoText) {
   const customer = session.customer_details || {};
   const collected = (session.collected_information && session.collected_information.shipping_details) || session.shipping_details || {};
   const a = collected.address || customer.address || {};
@@ -371,12 +469,14 @@ function buildEmail(session) {
     '',
     'TOTAL PAID: ' + money(session.amount_total),
     '',
+    photoText || '',
+    meta.notes ? 'Notes from the customer: ' + meta.notes : '',
     meta.gift_message ? '*** GIFT NOTE - write this on a card and include it ***\n' + meta.gift_message + '\n' : '',
     meta.address ? 'Address typed on the website: ' + meta.address : '',
     meta.country ? 'Country chosen on the website: ' + meta.country : '',
     'See it in Stripe: ' + payment,
   ].filter((l, i, all) => !(l === '' && all[i - 1] === '')).join('\n');
-  return { subject: (meta.gift_message ? '[GIFT NOTE] ' : '') + 'New order ' + money(session.amount_total) + ' - ' + who, text };
+  return { subject: (meta.gift_message ? '[GIFT NOTE] ' : '') + (photoText ? '[PHOTO ORDER] ' : '') + 'New order ' + money(session.amount_total) + ' - ' + who, text };
 }
 
 async function onRequest(context) {
@@ -406,7 +506,7 @@ async function onRequest(context) {
   if (!got || !got.ok) { console.error('Could not read the order from Stripe'); return say('Could not read order', 500); }
   const session = await got.json();
 
-  const { subject, text } = buildEmail(session);
+  const { subject, text } = buildEmail(session, await photoLinksText(env, session.metadata));
   const sent = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
@@ -747,9 +847,83 @@ async function productPage(request, env, slug) {
     .transform(res);
 }
 
+// ---------------------------------------------------------------
+// PHOTO ORNAMENTS. Photos are saved in an R2 bucket (binding name PHOTOS in wrangler.toml).
+//   POST /api/photo           the website uploads one photo; we answer with its private id
+//   GET  /api/photo/<id>?t=   the link in the order email (only works with the secret token)
+// ---------------------------------------------------------------
+const PHOTO_PRICE_CENTS = 5500, PHOTO_MAX_BYTES = 15 * 1024 * 1024, PHOTO_MAX_COUNT = 5;
+const PHOTO_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif', 'application/octet-stream'];
+const textOut = (message, status) => new Response(message, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+
+async function photoToken(env, id) {
+  const secret = env.STRIPE_WEBHOOK_SECRET || env.STRIPE_SECRET_KEY || '';
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('photo:' + id));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
+}
+function sameString(a, b) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+async function photoUpload(request, env) {
+  if (request.method !== 'POST') return textOut('Method not allowed', 405);
+  if (!env.PHOTOS) return textOut('Photo uploads are not set up yet.', 503);
+  const type = (request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+  if (!PHOTO_TYPES.includes(type)) return textOut('Please choose a JPG, PNG, WEBP or HEIC photo.', 415);
+  const declared = Number(request.headers.get('Content-Length') || 0);
+  if (declared > PHOTO_MAX_BYTES) return textOut('That photo is larger than 15 MB.', 413);
+  const body = await request.arrayBuffer();
+  if (body.byteLength < 1) return textOut('The photo was empty.', 400);
+  if (body.byteLength > PHOTO_MAX_BYTES) return textOut('That photo is larger than 15 MB.', 413);
+  let filename = 'photo';
+  try { filename = decodeURIComponent(request.headers.get('X-Filename') || 'photo'); } catch (e) {}
+  filename = filename.replace(/[^\w.\- ]+/g, '_').slice(0, 100) || 'photo';
+  const id = crypto.randomUUID();
+  await env.PHOTOS.put(id, body, { httpMetadata: { contentType: type }, customMetadata: { filename, uploaded: new Date().toISOString() } });
+  return new Response(JSON.stringify({ key: id }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
+async function photoDownload(request, env, id) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return textOut('Method not allowed', 405);
+  const t = new URL(request.url).searchParams.get('t') || '';
+  if (!PHOTO_ID.test(id) || !env.PHOTOS || !sameString(t, await photoToken(env, id))) return textOut('Not found', 404);
+  const obj = await env.PHOTOS.get(id);
+  if (!obj) return textOut('Not found', 404);
+  const type = (obj.httpMetadata && obj.httpMetadata.contentType) || 'application/octet-stream';
+  const inline = /^image\/(jpeg|png|webp|gif)$/.test(type);
+  const name = ((obj.customMetadata && obj.customMetadata.filename) || 'photo').replace(/[^\w.\- ]+/g, '_');
+  return new Response(request.method === 'HEAD' ? null : obj.body, { status: 200, headers: {
+    'Content-Type': type,
+    'Content-Disposition': (inline ? 'inline' : 'attachment') + '; filename="' + name + '"',
+    'Cache-Control': 'private, max-age=3600',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'",
+  } });
+}
+
+// The text block for the order email: one private link per photo.
+async function photoLinksText(env, meta) {
+  const ids = String((meta && meta.photos) || '').split(',').filter((x) => PHOTO_ID.test(x));
+  if (!ids.length) return '';
+  let origin = 'https://vintageof4seasons.com';
+  try { origin = new URL(env.SITE_URL).origin; } catch (e) {}
+  const links = [];
+  for (let i = 0; i < ids.length; i++) links.push((i + 1) + '. ' + origin + '/api/photo/' + ids[i] + '?t=' + (await photoToken(env, ids[i])));
+  return '*** PHOTOS FOR THE ORNAMENT (tap each link to open or save it) ***\n' + links.join('\n') + '\n';
+}
+
 export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
+    if (pathname === '/api/photo') return photoUpload(request, env);
+    const pm = /^\/api\/photo\/([0-9a-f-]{36})\/?$/.exec(pathname);
+    if (pm) return photoDownload(request, env, pm[1]);
+    if (pathname === '/api/custom-order') return checkoutHandler.customOrder({ request, env });
     if (pathname === '/api/checkout') return checkoutHandler({ request, env });
     if (pathname === '/api/stripe-webhook') return webhookHandler({ request, env });
     if (pathname.startsWith('/ornament/') && (request.method === 'GET' || request.method === 'HEAD')) {

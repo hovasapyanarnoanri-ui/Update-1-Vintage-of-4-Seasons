@@ -2216,7 +2216,7 @@ form.panel{background:var(--paper);border:1px solid rgba(0,0,0,.08);padding:24px
       <button type="button" class="btn" style="margin-bottom:18px" onclick="addOrnLine()">+ Add another ornament</button>
       <div id="photoZone" style="border:2px dashed var(--gold);border-radius:8px;padding:18px;margin:6px 0 18px;text-align:center;background:var(--cream)">
         <h3 style="font-size:1rem;margin-bottom:4px">📷 Photo Ornament — add your photo(s)</h3>
-        <p class="note" style="margin:0 0 10px">Want a photo hand-set inside a keepsake glass ornament? Add up to 5 photos here (JPG, PNG or HEIC, 15 MB each). Clear, well-lit photos work best. Then choose "Photo ornament" in the list above, and we'll confirm the price by email.</p>
+        <p class="note" style="margin:0 0 10px">Want a photo hand-set inside a keepsake glass ornament? Add up to 5 photos here (JPG, PNG or HEIC, 15 MB each). Clear, well-lit photos work best. Then choose "Photo ornament" in the list above. Photo ornaments are $55 each. When you pay, your photos go straight to Luso.</p>
         <label class="btn primary" for="photoInput" style="cursor:pointer;display:inline-block">＋ Add photo</label>
         <input type="file" id="photoInput" accept="image/*" multiple onchange="photoPicked(this)" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
         <button type="button" class="btn secondary" style="margin-left:8px" onclick="go('photopreview')">Preview your photo</button>
@@ -2235,7 +2235,8 @@ form.panel{background:var(--paper);border:1px solid rgba(0,0,0,.08);padding:24px
       <h3 style="font-size:1rem">Payment</h3>
       <p class="note">After you send your order, we'll email you to confirm the total and arrange secure payment. No card details are needed here.</p>
 
-      <button class="btn primary" style="width:100%;margin-top:10px">Review &amp; Submit Order</button>
+      <button class="btn primary" id="orderSubmitBtn" style="width:100%;margin-top:10px">Review &amp; Submit Order</button>
+      <p class="note" id="orderStatus" style="text-align:center;margin-top:8px" role="status"></p>
     </form>
     <div class="confirm" id="orderConfirm">
       <h2>One Last Step!</h2>
@@ -2799,14 +2800,15 @@ function shippingCost(itemCount, zip, country) {
   return base + Math.max(0, itemCount - 1) * SHIP.EXTRA_LINE;
 }
 const colorOpts=Object.keys(colorMap).map(c=>`<option>${c}</option>`).join('')+'<option value="other">Other (type below)</option>';
+const PHOTO_PRICE=55;
 function addOrnLine(){
   const wrap=document.getElementById('ornLines');
   const n=wrap.children.length+1;
-  const opts=products.map((pr,i)=>(pr.sizes||pr.box)?'':`<option value="${i}">${pr.n} — $${pr.p}</option>`).join('')+'<option value="photo">Photo ornament — send us your photo (quote by email)</option><option value="other">Something else (type it in)</option>';
+  const opts=products.map((pr,i)=>(pr.sizes||pr.box)?'':`<option value="${i}">${pr.n} — $${pr.p}</option>`).join('')+'<option value="photo">Photo ornament — $55</option><option value="other">Something else (type it in)</option>';
   const d=document.createElement('div');
   d.className='orn-line';
   d.style.cssText='border:1px solid var(--gold-soft);border-radius:4px;padding:14px;margin-bottom:12px';
-  d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong style="font-size:.9rem">Ornament ${n}</strong>${n>1?'<button type="button" onclick="removeOrnLine(this)" style="background:none;border:none;color:var(--cranberry);cursor:pointer;font-size:.85rem">Remove</button>':''}</div>
+  d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong style="font-size:.9rem">Ornament ${n}</strong><button type="button" onclick="removeOrnLine(this)" style="background:none;border:none;color:var(--cranberry);cursor:pointer;font-size:.85rem">Remove</button></div>
     <div class="field"><label>Ornament</label><select class="ol-orn" onchange="this.closest('.orn-line').querySelector('.ol-other').classList.toggle('hide',this.value!=='other');if(this.value==='photo'){const z=document.getElementById('photoZone');z.scrollIntoView({behavior:'smooth',block:'center'});}calc()">${opts}</select></div>
     <div class="field ol-other hide"><label>Type the ornament you want</label><input class="ol-name" placeholder="e.g. a velvet reindeer with a red bow" oninput="calc()"><p class="note" style="margin-top:4px">Price for custom ideas is confirmed by email before anything is made.</p></div>
     <div class="two-col">
@@ -2862,18 +2864,19 @@ function calc(){
     const text=l.querySelector('.ol-engrave').value;
     const letters=(text.match(/[a-zA-Z0-9]/g)||[]).length;
     let name,price;
-    if(v==='photo'){const pc=ORDER_PHOTOS.length;name='Photo ornament'+(pc?` (${pc} photo${pc>1?'s':''})`:'');price=0;hasCustom=true;}
+    if(v==='photo'){const pc=ORDER_PHOTOS.length;name='Photo ornament'+(pc?` (${pc} photo${pc>1?'s':''})`:'');price=PHOTO_PRICE;}
     else if(v==='other'){name=l.querySelector('.ol-name').value||'Custom ornament';price=0;hasCustom=true;}
     else{name=products[+v].n;price=products[+v].p;}
     const eng=letters*qty;
     subtotal+=price*qty;engraveTotal+=eng;count+=qty;
-    html+=`<div><span>${name} (${qty}${(v==='other'||v==='photo')?'':` × $${price}`}, ${color})</span><span>${(v==='other'||v==='photo')?'Quote by email':'$'+(price*qty).toFixed(2).replace(/\.00$/,'')}</span></div>`;
+    html+=`<div><span>${name} (${qty}${v==='other'?'':` × $${price}`}, ${color})</span><span>${v==='other'?'Quote by email':'$'+(price*qty).toFixed(2).replace(/\.00$/,'')}</span></div>`;
     if(letters)html+=`<div><span>&nbsp;&nbsp;Engraving: ${letters} letters/numbers × ${qty} × $1</span><span>$${eng.toFixed(2).replace(/\.00$/,'')}</span></div>`;
   });
   const zip=document.getElementById('zipOrder')?.value;
   const country=document.getElementById('countryOrder')?.value;
   const shipping=count?shippingCost(count,zip,country):0;
   const total=subtotal+engraveTotal+shipping;
+  if(!lines.length)html='<p class="note" style="margin:0 0 8px">Tap "+ Add another ornament" below to start your order.</p>';
   document.getElementById('summary').innerHTML=html+`
     <div><span>Shipping</span><span>$${shipping}</span></div><div><span>Sales tax</span><span>None — we don't charge tax</span></div>
     <div class="total"><span>Total${hasCustom?' (so far)':''}</span><span>$${total.toFixed(2).replace(/\.00$/,'')}</span></div>`+(hasCustom?'<p class="note" style="margin-top:6px">Custom ornament prices are added once we confirm them with you by email.</p>':'');
@@ -2928,9 +2931,51 @@ function renderOrderPhotos(photos,body){
     }catch(err){}
   };
 }
+async function payPhotoOrder(lines){
+  const btn=document.getElementById('orderSubmitBtn'), st=document.getElementById('orderStatus');
+  const mapLines=lines.map(l=>{
+    const v=l.querySelector('.ol-orn').value, cs=l.querySelector('.ol-color').value;
+    const o={qty:Math.max(1,+l.querySelector('.ol-qty').value||1),color:cs==='other'?(l.querySelector('.ol-color-text').value||'custom color'):cs,engrave:l.querySelector('.ol-engrave').value};
+    if(v==='photo')o.photo=true; else o.name=products[+v].n;
+    return o;
+  });
+  if(!CHECKOUT_URL){
+    st.style.color='';st.textContent='Preview: on the live site your photo uploads securely, then you go to Stripe to pay. Lisa receives the photo with your order.';
+    return;
+  }
+  const API=CHECKOUT_URL.replace(/\/checkout.*$/,'');
+  btn.disabled=true;st.style.color='';
+  try{
+    const keys=[];
+    for(let i=0;i<ORDER_PHOTOS.length;i++){
+      const f=ORDER_PHOTOS[i];
+      st.textContent='Uploading photo '+(i+1)+' of '+ORDER_PHOTOS.length+'… please keep this page open.';
+      const r=await fetch(API+'/photo',{method:'POST',headers:{'Content-Type':f.type||'application/octet-stream','X-Filename':encodeURIComponent(f.name||'photo')},body:f});
+      if(!r.ok)throw new Error(await r.text());
+      keys.push((await r.json()).key);
+    }
+    st.textContent='Taking you to secure payment…';
+    const r2=await fetch(API+'/custom-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      lines:mapLines,photos:keys,zip:val('zipOrder'),ctry:val('countryOrder')||'US',email:val('emailOrder'),name:val('nameOrder'),phone:val('phoneOrder'),addr:val('addrOrder'),notes:val('notesOrder')})});
+    const d=await r2.json().catch(()=>({}));
+    if(!r2.ok||!d.url)throw new Error('checkout');
+    location.href=d.url;
+  }catch(err){
+    btn.disabled=false;st.style.color='#d93036';
+    st.textContent='Sorry, something went wrong while uploading or starting payment. Your details are still here, so please try again. If it keeps happening, email us and we will help.';
+  }
+}
 function submitOrder(e){
   e.preventDefault();
   if(!validPhone(val('phoneOrder'),val('countryOrder'))){failPhone('Order');return;}
+  const olines=[...document.querySelectorAll('#ornLines .orn-line')];
+  if(!olines.length){showToast('Please add at least one ornament first.');return;}
+  const hasPhotoLine=olines.some(l=>l.querySelector('.ol-orn').value==='photo');
+  const hasOtherLine=olines.some(l=>l.querySelector('.ol-orn').value==='other');
+  if(hasPhotoLine){
+    if(!ORDER_PHOTOS.length){showToast('Please add your photo first (tap "Add photo").');document.getElementById('photoZone').scrollIntoView({behavior:'smooth',block:'center'});return;}
+    if(!hasOtherLine){payPhotoOrder(olines);return;}
+  }
   document.getElementById('orderRecap').innerHTML=document.getElementById('summary').innerHTML;
   const photos=collectPhotos();
   const photoTxt=photos.length?`\n\nPHOTOS (customer will attach these): ${photos.map(p=>p.file.name).join(', ')}`:'';
