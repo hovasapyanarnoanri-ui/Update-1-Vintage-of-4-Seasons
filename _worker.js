@@ -92,9 +92,13 @@ function shippingCost(lineCount, zip, isInternational) {
 
 const clean = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) : '');
 
-// Gift Box: $70 for the box plus the ornaments inside. 15 or more ornaments = the box is free.
-const BOX_FEE_CENTS = 7000, BOX_FREE_AT = 15, BOX_MAX_ITEMS = 30, BOX_MAX_LINES = 8;
-function boxQuote(items) {
+// Gift Box: Large = $70 (free with 15 or more ornaments), Small = $30 (free with 3 or more), plus the ornaments inside.
+const BOX_SIZES = { Large: { fee: 7000, freeAt: 15 }, Small: { fee: 3000, freeAt: 3 } };
+const BOX_MAX_ITEMS = 30, BOX_MAX_LINES = 8;
+function boxQuote(items, size) {
+  const sz = (size === undefined || size === null || size === '') ? 'Large' : size;
+  if (typeof sz !== 'string' || !has(BOX_SIZES, sz)) return null;
+  const BOX_FEE_CENTS = BOX_SIZES[sz].fee, BOX_FREE_AT = BOX_SIZES[sz].freeAt;
   if (!Array.isArray(items) || items.length < 1 || items.length > BOX_MAX_LINES) return null;
   let cents = BOX_FEE_CENTS, count = 0;
   const parts = [];
@@ -110,7 +114,7 @@ function boxQuote(items) {
   }
   const free = count >= BOX_FREE_AT;
   if (free) cents -= BOX_FEE_CENTS;   // the box fee is waived
-  return { cents, count, free, contents: parts.join(', ') };
+  return { cents, count, free, size: sz, fee: BOX_FEE_CENTS, contents: parts.join(', ') };
 }
 const say = (message, status) =>
   new Response(message, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
@@ -143,21 +147,21 @@ async function onRequest(context) {
 
   // The website sends each line as {priceId, name, color, qty, items?}. The Stripe price ID rides along,
   // but the price actually charged always comes from CATALOG above (never from the browser).
-  const rows = cart.map((r) => (r && typeof r === 'object' && !Array.isArray(r) ? [r.name, r.color, r.qty, r.items] : r));
+  const rows = cart.map((r) => (r && typeof r === 'object' && !Array.isArray(r) ? [r.name, r.color, r.qty, r.items, r.size] : (Array.isArray(r) ? r.slice(0, 4) : r)));
 
   // Build the form Stripe expects (every price comes from CATALOG above)
   const form = new URLSearchParams();
   form.append('mode', 'payment');
   let n = 0;
   for (const row of rows) {
-    const [name, variant, qty, boxItems] = Array.isArray(row) ? row : [];
+    const [name, variant, qty, boxItems, boxSize] = Array.isArray(row) ? row : [];
     const quantity = Number(qty);
     let unitCents, label;
     if (typeof name === 'string' && has(CATALOG, name) && CATALOG[name].box) {
-      const box = boxQuote(boxItems);
+      const box = boxQuote(boxItems, boxSize);
       if (box === null) return say('Your gift box could not be read. Please go back and rebuild it.', 400);
       unitCents = box.cents;
-      label = clean(name, 60) + ' — ' + clean(String(variant), 30) + ' — contains ' + box.contents + (box.free ? ' + gift box (free)' : ' + $70 gift box');
+      label = clean(name, 60) + ' — ' + clean(String(variant), 30) + ' — ' + box.size + ' box — contains ' + box.contents + (box.free ? ' + gift box (free)' : ' + $' + (box.fee / 100) + ' gift box');
       label = label.length > 250 ? label.slice(0, 247) + '...' : label;
     } else {
       const price = typeof name === 'string' ? priceFor(name, variant) : null;
@@ -558,7 +562,7 @@ const PAGES = {
   "n": "Ornament Gift Box",
   "t": "Ornament Gift Box | Vintage of 4 Seasons",
   "m": "Handmade ornament gift box, one of a kind and made to be remembered. A velvet keepsake gift box filled with the ornaments you choose. It is. Engraving $1 a letter. No sales tax, ships in about 3 days.",
-  "d": "A velvet keepsake gift box filled with the ornaments you choose. The box is $70, plus the ornaments you choose, and the box is free when you choose 15 or more ornaments.",
+  "d": "A velvet keepsake gift box filled with the ornaments you choose. Choose a small box ($30, free with 3 or more ornaments) or a large box ($70, free with 15 or more ornaments), plus the ornaments you choose.",
   "p": 0,
   "box": true,
   "cat": "Vintage"
@@ -706,7 +710,7 @@ const RETURN_LD = {"@type":"MerchantReturnPolicy","applicableCountry":"US","retu
 function productJsonLd(slug, pg) {
   const url = SITE + '/ornament/' + slug;
   const offer = pg.box
-    ? { '@type': 'AggregateOffer', priceCurrency: 'USD', lowPrice: '110' }
+    ? { '@type': 'AggregateOffer', priceCurrency: 'USD', lowPrice: '70' }
     : { '@type': 'Offer', priceCurrency: 'USD', price: pg.p.toFixed(2) };
   Object.assign(offer, { availability: 'https://schema.org/InStock', itemCondition: 'https://schema.org/NewCondition', url, priceValidUntil: '2026-12-31', shippingDetails: SHIP_LD, hasMerchantReturnPolicy: RETURN_LD });
   return [
