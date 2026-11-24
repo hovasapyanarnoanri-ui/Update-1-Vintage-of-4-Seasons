@@ -21,35 +21,35 @@ const checkoutHandler = (() => {
 // PRICE LIST (US dollars). When Luso changes a price, change it here AND on the website.
 // ---------------------------------------------------------------
 const CATALOG = {
-  "Handcrafted Winter Angel": {"p":67},
-  "Vintage Carousel Horse Drum Ornament": {"p":59},
-  "Gold Leaf Teardrop Ornament": {"p":47},
-  "Antique Carriage Ornament": {"p":99},
-  "Guitar Ornament": {"p":63},
-  "Chandelier Ornament": {"p":91},
-  "High Heel Ornament": {"p":49},
-  "Medallion Ornament": {"p":64},
-  "Large Medallion Ornament": {"p":107},
-  "Mother Mary Ornament": {"p":63},
-  "Doves & Crown Ornament": {"p":63},
-  "Throne Ornament": {"p":59},
-  "Peacock Ornament": {"p":99},
+  "Handcrafted Winter Angel": {"p":55},
+  "Vintage Carousel Horse Drum Ornament": {"p":55},
+  "Gold Leaf Teardrop Ornament": {"p":45},
+  "Antique Carriage Ornament": {"p":75},
+  "Guitar Ornament": {"p":65},
+  "Chandelier Ornament": {"p":75},
+  "High Heel Ornament": {"p":40},
+  "Medallion Ornament": {"p":55},
+  "Large Medallion Ornament": {"p":75},
+  "Mother Mary Ornament": {"p":55},
+  "Doves & Crown Ornament": {"p":55},
+  "Throne Ornament": {"p":45},
+  "Peacock Ornament": {"p":75},
   "Ornament Gift Box": {"box":true},
-  "Jeweled Bow Ornament": {"p":67},
-  "Praying Mary Ornament": {"p":63},
-  "Angel Ornament": {"p":67},
-  "Sapphire Cameo Ornament": {"p":67},
-  "Angel of Eternal Love Ornament": {"p":64},
-  "Ballet Slippers Ornament": {"p":67},
-  "Ballerina Ornament": {"p":67},
-  "Masquerade Mask Ornament": {"p":67},
-  "Horse Head Ornament": {"p":67},
-  "Carousel Horse Medallion": {"p":59},
-  "Jeweled Filigree Ornament": {"p":67},
+  "Jeweled Bow Ornament": {"p":55},
+  "Praying Mary Ornament": {"p":55},
+  "Angel Ornament": {"p":55},
+  "Sapphire Cameo Ornament": {"p":55},
+  "Angel of Eternal Love Ornament": {"p":55},
+  "Ballet Slippers Ornament": {"p":55},
+  "Ballerina Ornament": {"p":55},
+  "Masquerade Mask Ornament": {"p":55},
+  "Horse Head Ornament": {"p":55},
+  "Carousel Horse Medallion": {"p":55},
+  "Jeweled Filigree Ornament": {"p":55},
   "Jeweled Pearl Ornament": {"p":67},
-  "Rose Cameo Ornament": {"p":67},
-  "Framed Ballerina Ornament": {"p":67},
-  "Crystal Teardrop Ornament": {"p":59},
+  "Rose Cameo Ornament": {"p":55},
+  "Framed Ballerina Ornament": {"p":55},
+  "Crystal Teardrop Ornament": {"p":55},
 };
 
 const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
@@ -92,8 +92,8 @@ function shippingCost(lineCount, zip, isInternational) {
 
 const clean = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max) : '');
 
-// Gift Box: the price is the ornaments chosen inside it (box included). 3 or more ornaments = a free separate gift box.
-const BOX_FEE_CENTS = 0, BOX_FREE_AT = 3, BOX_MAX_ITEMS = 12, BOX_MAX_LINES = 8;
+// Gift Box: $70 for the box plus the ornaments inside. 15 or more ornaments = the box is free.
+const BOX_FEE_CENTS = 7000, BOX_FREE_AT = 15, BOX_MAX_ITEMS = 30, BOX_MAX_LINES = 8;
 function boxQuote(items) {
   if (!Array.isArray(items) || items.length < 1 || items.length > BOX_MAX_LINES) return null;
   let cents = BOX_FEE_CENTS, count = 0;
@@ -108,7 +108,9 @@ function boxQuote(items) {
     cents += Math.round(CATALOG[n].p * 100) * quantity;
     parts.push(quantity + 'x ' + n.replace(/ Ornament$/, '') + ' (' + clean(typeof c === 'string' ? c : '', 20) + ')');
   }
-  return { cents, count, free: count >= BOX_FREE_AT, contents: parts.join(', ') };
+  const free = count >= BOX_FREE_AT;
+  if (free) cents -= BOX_FEE_CENTS;   // the box fee is waived
+  return { cents, count, free, contents: parts.join(', ') };
 }
 const say = (message, status) =>
   new Response(message, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
@@ -155,7 +157,7 @@ async function onRequest(context) {
       const box = boxQuote(boxItems);
       if (box === null) return say('Your gift box could not be read. Please go back and rebuild it.', 400);
       unitCents = box.cents;
-      label = clean(name, 60) + ' — ' + clean(String(variant), 30) + ' — contains ' + box.contents + (box.free ? ' + FREE separate gift box' : '');
+      label = clean(name, 60) + ' — ' + clean(String(variant), 30) + ' — contains ' + box.contents + (box.free ? ' + gift box (free)' : ' + $70 gift box');
       label = label.length > 250 ? label.slice(0, 247) + '...' : label;
     } else {
       const price = typeof name === 'string' ? priceFor(name, variant) : null;
@@ -440,7 +442,7 @@ const PAGES = {
   "t": "Handcrafted Winter Angel | Vintage of 4 Seasons",
   "m": "Handmade handcrafted winter angel, one of a kind and made to be remembered. Soft-painted wings, ready for engraving. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "Soft-painted wings, ready for engraving.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Character, Religious"
  },
@@ -449,7 +451,7 @@ const PAGES = {
   "t": "Vintage Carousel Horse Drum Ornament | Vintage of 4 Seasons",
   "m": "Handmade vintage carousel horse drum ornament, one of a kind and made to be remembered. A nostalgic carousel horse in soft, hand-painted colors. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A nostalgic carousel horse in soft, hand-painted colors.",
-  "p": 59,
+  "p": 55,
   "box": false,
   "cat": "Winter"
  },
@@ -458,7 +460,7 @@ const PAGES = {
   "t": "Gold Leaf Teardrop Ornament | Vintage of 4 Seasons",
   "m": "Handmade gold leaf teardrop ornament, one of a kind and made to be remembered. A smooth teardrop shape finished in antique gold leaf. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A smooth teardrop shape finished in antique gold leaf.",
-  "p": 47,
+  "p": 45,
   "box": false,
   "cat": "Vintage"
  },
@@ -467,7 +469,7 @@ const PAGES = {
   "t": "Antique Carriage Ornament | Vintage of 4 Seasons",
   "m": "Handmade antique carriage ornament, one of a kind and made to be remembered. A detailed miniature carriage with an aged-gold finish. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A detailed miniature carriage with an aged-gold finish.",
-  "p": 99,
+  "p": 75,
   "box": false,
   "cat": "Limited Edition"
  },
@@ -476,7 +478,7 @@ const PAGES = {
   "t": "Guitar Ornament, Handmade Christmas Ornament | Vintage of 4 Seasons",
   "m": "Handmade guitar ornament, one of a kind and made to be remembered. A miniature guitar with jeweled detailing and a hanging ribbon. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A miniature guitar with jeweled detailing and a hanging ribbon.",
-  "p": 63,
+  "p": 65,
   "box": false,
   "cat": "Vintage"
  },
@@ -485,7 +487,7 @@ const PAGES = {
   "t": "Chandelier Ornament | Vintage of 4 Seasons",
   "m": "Handmade chandelier ornament, one of a kind and made to be remembered. A tiny crystal chandelier set on a hand-finished cushion base. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A tiny crystal chandelier set on a hand-finished cushion base.",
-  "p": 91,
+  "p": 75,
   "box": false,
   "cat": "Vintage"
  },
@@ -494,7 +496,7 @@ const PAGES = {
   "t": "High Heel Ornament, Handmade Christmas Ornament | Vintage of 4 Seasons",
   "m": "Handmade high heel ornament, one of a kind and made to be remembered. A pair of tiny jeweled high heels, each tied with a satin bow. Sold as. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A pair of tiny jeweled high heels, each tied with a satin bow. Sold as a pair.",
-  "p": 49,
+  "p": 40,
   "box": false,
   "cat": "Vintage"
  },
@@ -503,7 +505,7 @@ const PAGES = {
   "t": "Medallion Ornament, Handmade Christmas Ornament | Vintage of 4 Seasons",
   "m": "Handmade medallion ornament, one of a kind and made to be remembered. An opening keepsake medallion with a clock face framed in jewels and p. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "An opening keepsake medallion with a clock face framed in jewels and pearls.",
-  "p": 64,
+  "p": 55,
   "box": false,
   "cat": "Limited Edition"
  },
@@ -512,7 +514,7 @@ const PAGES = {
   "t": "Large Medallion Ornament | Vintage of 4 Seasons",
   "m": "Handmade large medallion ornament, one of a kind and made to be remembered. A large opening keepsake medallion with a clock face framed in jewels. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A large opening keepsake medallion with a clock face framed in jewels and pearls. A statement piece for the tree.",
-  "p": 107,
+  "p": 75,
   "box": false,
   "cat": "Limited Edition"
  },
@@ -521,7 +523,7 @@ const PAGES = {
   "t": "Mother Mary Ornament | Vintage of 4 Seasons",
   "m": "Handmade mother mary ornament, one of a kind and made to be remembered. A raised figure of Mother Mary framed in a floral wreath, edged with p. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A raised figure of Mother Mary framed in a floral wreath, edged with pearls. The back of this ornament shows Mother Mary and Baby Jesus.",
-  "p": 63,
+  "p": 55,
   "box": false,
   "cat": "Character, Religious"
  },
@@ -530,7 +532,7 @@ const PAGES = {
   "t": "Doves & Crown Ornament | Vintage of 4 Seasons",
   "m": "Handmade doves & crown ornament, one of a kind and made to be remembered. Two white doves above a crown, edged with pearls. The back of this orn. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "Two white doves above a crown, edged with pearls. The back of this ornament is the Cross.",
-  "p": 63,
+  "p": 55,
   "box": false,
   "cat": "Winter, Religious"
  },
@@ -539,7 +541,7 @@ const PAGES = {
   "t": "Throne Ornament, Handmade Christmas Ornament | Vintage of 4 Seasons",
   "m": "Handmade throne ornament, one of a kind and made to be remembered. A miniature Gothic-style throne with jeweled detail and a satin bow. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A miniature Gothic-style throne with jeweled detail and a satin bow.",
-  "p": 59,
+  "p": 45,
   "box": false,
   "cat": "Vintage"
  },
@@ -548,7 +550,7 @@ const PAGES = {
   "t": "Peacock Ornament, Handmade Christmas Ornament | Vintage of 4 Seasons",
   "m": "Handmade peacock ornament, one of a kind and made to be remembered. A jeweled peacock on a filigree cage, with a feathered tail and satin. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A jeweled peacock on a filigree cage, with a feathered tail and satin bow.",
-  "p": 99,
+  "p": 75,
   "box": false,
   "cat": "Character"
  },
@@ -556,7 +558,7 @@ const PAGES = {
   "n": "Ornament Gift Box",
   "t": "Ornament Gift Box | Vintage of 4 Seasons",
   "m": "Handmade ornament gift box, one of a kind and made to be remembered. A velvet keepsake gift box filled with the ornaments you choose. It is. Engraving $1 a letter. No sales tax, ships in about 3 days.",
-  "d": "A velvet keepsake gift box filled with the ornaments you choose. It is priced by what you put inside, and 3 or more ornaments come with a second, separate gift box free.",
+  "d": "A velvet keepsake gift box filled with the ornaments you choose. The box is $70, plus the ornaments you choose, and the box is free when you choose 15 or more ornaments.",
   "p": 0,
   "box": true,
   "cat": "Vintage"
@@ -566,7 +568,7 @@ const PAGES = {
   "t": "Jeweled Bow Ornament | Vintage of 4 Seasons",
   "m": "Handmade jeweled bow ornament, one of a kind and made to be remembered. A silk-covered ornament topped with a satin bow, finished with a jewel. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A silk-covered ornament topped with a satin bow, finished with a jeweled brooch, pearls, and a hand-tied tassel.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Vintage, Winter"
  },
@@ -575,7 +577,7 @@ const PAGES = {
   "t": "Praying Mary Ornament | Vintage of 4 Seasons",
   "m": "Handmade praying mary ornament, one of a kind and made to be remembered. Mother Mary in prayer, framed in pearls and finished with a hand-tied. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "Mother Mary in prayer, framed in pearls and finished with a hand-tied tassel.",
-  "p": 63,
+  "p": 55,
   "box": false,
   "cat": "Character, Religious"
  },
@@ -584,7 +586,7 @@ const PAGES = {
   "t": "Angel Ornament, Handmade Christmas Ornament | Vintage of 4 Seasons",
   "m": "Handmade angel ornament, one of a kind and made to be remembered. A sleeping winged cherub resting on soft velvet, edged with pearls and. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A sleeping winged cherub resting on soft velvet, edged with pearls and a hand-tied tassel.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Character, Winter"
  },
@@ -593,7 +595,7 @@ const PAGES = {
   "t": "Sapphire Cameo Ornament | Vintage of 4 Seasons",
   "m": "Handmade sapphire cameo ornament, one of a kind and made to be remembered. A hand-finished cameo portrait framed in jewels and pearls, with a han. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A hand-finished cameo portrait framed in jewels and pearls, with a hand-tied tassel.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Vintage"
  },
@@ -602,7 +604,7 @@ const PAGES = {
   "t": "Angel of Eternal Love Ornament | Vintage of 4 Seasons",
   "m": "Handmade angel of eternal love ornament, one of a kind and made to be remembered. A little cherub holding a heart, set in an ornate frame under a satin. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A little cherub holding a heart, set in an ornate frame under a satin bow.",
-  "p": 64,
+  "p": 55,
   "box": false,
   "cat": "Character, Winter"
  },
@@ -611,7 +613,7 @@ const PAGES = {
   "t": "Ballet Slippers Ornament | Vintage of 4 Seasons",
   "m": "Handmade ballet slippers ornament, one of a kind and made to be remembered. A pair of satin ballet slippers in a jeweled frame with roses and a sa. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A pair of satin ballet slippers in a jeweled frame with roses and a satin bow.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Character"
  },
@@ -620,7 +622,7 @@ const PAGES = {
   "t": "Ballerina Ornament, Handmade Christmas Ornament | Vintage of 4 Seasons",
   "m": "Handmade ballerina ornament, one of a kind and made to be remembered. A hand-posed ballerina in a jeweled tutu on soft velvet, with a pearl. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A hand-posed ballerina in a jeweled tutu on soft velvet, with a pearl and tassel.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Character"
  },
@@ -629,7 +631,7 @@ const PAGES = {
   "t": "Masquerade Mask Ornament | Vintage of 4 Seasons",
   "m": "Handmade masquerade mask ornament, one of a kind and made to be remembered. A jeweled masquerade mask under a satin bow, set on soft velvet with a. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A jeweled masquerade mask under a satin bow, set on soft velvet with a hand-tied tassel.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Vintage"
  },
@@ -638,7 +640,7 @@ const PAGES = {
   "t": "Horse Head Ornament | Vintage of 4 Seasons",
   "m": "Handmade horse head ornament, one of a kind and made to be remembered. A sculpted horse head framed in filigree and pearls, with a hand-tied. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A sculpted horse head framed in filigree and pearls, with a hand-tied tassel.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Winter"
  },
@@ -647,7 +649,7 @@ const PAGES = {
   "t": "Carousel Horse Medallion | Vintage of 4 Seasons",
   "m": "Handmade carousel horse medallion, one of a kind and made to be remembered. A carousel horse on a round velvet medallion, edged with pearls and fi. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A carousel horse on a round velvet medallion, edged with pearls and finished with a tassel.",
-  "p": 59,
+  "p": 55,
   "box": false,
   "cat": "Winter"
  },
@@ -656,7 +658,7 @@ const PAGES = {
   "t": "Jeweled Filigree Ornament | Vintage of 4 Seasons",
   "m": "Handmade jeweled filigree ornament, one of a kind and made to be remembered. A velvet-covered ornament with hand-set filigree and jewels, topped wi. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A velvet-covered ornament with hand-set filigree and jewels, topped with a satin bow and finished with a tassel.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Vintage"
  },
@@ -674,7 +676,7 @@ const PAGES = {
   "t": "Rose Cameo Ornament | Vintage of 4 Seasons",
   "m": "Handmade rose cameo ornament, one of a kind and made to be remembered. A hand-finished cameo portrait framed in gold and set with satin roses. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A hand-finished cameo portrait framed in gold and set with satin roses, under a satin bow with a hand-tied tassel.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Vintage"
  },
@@ -683,7 +685,7 @@ const PAGES = {
   "t": "Framed Ballerina Ornament | Vintage of 4 Seasons",
   "m": "Handmade framed ballerina ornament, one of a kind and made to be remembered. A hand-posed ballerina inside an ornate jeweled frame, set on soft vel. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A hand-posed ballerina inside an ornate jeweled frame, set on soft velvet under a satin bow.",
-  "p": 67,
+  "p": 55,
   "box": false,
   "cat": "Character"
  },
@@ -692,7 +694,7 @@ const PAGES = {
   "t": "Crystal Teardrop Ornament | Vintage of 4 Seasons",
   "m": "Handmade crystal teardrop ornament, one of a kind and made to be remembered. A teardrop-shaped ornament wrapped in satin and edged with crystals, w. Engraving $1 a letter. No sales tax, ships in about 3 days.",
   "d": "A teardrop-shaped ornament wrapped in satin and edged with crystals, with a jeweled cap and a hand-tied tassel.",
-  "p": 59,
+  "p": 55,
   "box": false,
   "cat": "Vintage"
  }
@@ -704,7 +706,7 @@ const RETURN_LD = {"@type":"MerchantReturnPolicy","applicableCountry":"US","retu
 function productJsonLd(slug, pg) {
   const url = SITE + '/ornament/' + slug;
   const offer = pg.box
-    ? { '@type': 'AggregateOffer', priceCurrency: 'USD', lowPrice: '47' }
+    ? { '@type': 'AggregateOffer', priceCurrency: 'USD', lowPrice: '110' }
     : { '@type': 'Offer', priceCurrency: 'USD', price: pg.p.toFixed(2) };
   Object.assign(offer, { availability: 'https://schema.org/InStock', itemCondition: 'https://schema.org/NewCondition', url, priceValidUntil: '2026-12-31', shippingDetails: SHIP_LD, hasMerchantReturnPolicy: RETURN_LD });
   return [
